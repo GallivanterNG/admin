@@ -43,6 +43,7 @@ const SignUp = () => {
                     required={true}
                     onChange={(e) => setPassword(e.target.value)}
                 />
+                <div>Already have an account? <span className="text-green-500 font-semibold cursor-pointer" onClick={() => { navigate('/signin') }}>Sign In</span> </div>
                 <GalliButton
                     isButtonValid={true}
                     handleOnClick={handleSignUp}

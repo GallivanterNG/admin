@@ -15,15 +15,15 @@ const SignIn = () => {
     const handleSignIn = async () => {
         setLoading(true);
         try {
-          await signIn(email, password);
-          navigate('/');
+            await signIn(email, password);
+            navigate('/');
         } catch (error) {
-        //   setError(error);
-        console.log(error)
+            //   setError(error);
+            console.log(error)
         } finally {
-          setLoading(false);
+            setLoading(false);
         }
-      };
+    };
 
     return (
         <div className="flex flex-col h-screen items-center justify-center w-full">
@@ -50,6 +50,7 @@ const SignIn = () => {
                     required={true}
                     onChange={(e) => setPassword(e.target.value)}
                 />
+                <div>Don't have an account? <span className="text-green-500 font-semibold cursor-pointer" onClick={() => { navigate('/signup') }}>Sign Up</span> </div>
                 <GalliButton
                     isButtonValid={true}
                     handleOnClick={handleSignIn}
