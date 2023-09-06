@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { arrayUnion, getFirestore, query, where } from "firebase/firestore";
+import { arrayUnion, getDoc, getFirestore, onSnapshot, query, setDoc, where } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth"
 import {
@@ -18,7 +18,7 @@ import { useEffect, useState } from "react";
 // import { environment } from "./environment";
 
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_CONFIG,
+  apiKey: process.env.REACT_APP_FIREBASE_API,
   authDomain: "gallivanter-ae8ae.firebaseapp.com",
   projectId: "gallivanter-ae8ae",
   storageBucket: "gallivanter-ae8ae.appspot.com",
@@ -39,18 +39,22 @@ const storage = getStorage(app);
 const db = getFirestore(app);
 export const auth = getAuth(app)
 
-export const handleDeleteDoc = async (documentId) => {
+export const addProvider = async (collectionName, documentId, data) => {
   try {
-    const documentRef = doc(db, "deals", documentId);
-    await deleteDoc(documentRef);
-    return true;
+    const docRef = doc(db, collectionName, documentId);
+    await setDoc(docRef, data);
+    return true
   } catch (error) {
-    return
+    console.error(`Error adding document`, error);
+    throw error;
   }
 };
 
+
 export const handleFile = (image) => {
+
   return new Promise((resolve, reject) => {
+    console.log("image check")
     if (image == null) {
       reject("No image to upload");
       return;
@@ -72,128 +76,77 @@ export const handleFile = (image) => {
   });
 };
 
-export const handleSubmit = async (
-  image,
-  name,
+export const handleCreateXp = async (
+  userID,
+  title,
+  price,
   description,
   date,
-  rating
+  bookings,
+  image
 ) => {
   try {
     const imageURL = await handleFile(image);
-    const collectionRef = collection(db, "deals");
-    await addDoc(collectionRef, {
-      imageURL,
-      name,
-      description,
-      date,
-      rating
-    });
+    console.log("Image Uploaded");
 
+    const collectionRef = doc(db, "providers", userID);
 
-    return true;
-  } catch (error) {
+    // Get the current document data
+    const docSnapshot = await getDoc(collectionRef);
 
-    return false;
-  }
-};
+    if (docSnapshot.exists()) {
+      const data = docSnapshot.data();
 
-export const createCouponHandler = async (
-  holderName,
-  discountPercent,
-  couponCode,
-  couponUsage,
-) => {
-  try {
-
-    const collectionRef = collection(db, "coupons");
-    await addDoc(collectionRef, {
-      holderName,
-      discountPercent,
-      couponCode,
-      couponUsage,
-      createdAt: serverTimestamp(),
-
-    });
-    return true; // Return true after the document is added successfully
-  } catch (error) {
-
-    return false; // Return false in case of an error
-  }
-};
-
-export const handleProcessingOrder = async (newOrder) => {
-  try {
-    const collectionRef = collection(db, "orders");
-    const orderDocRef = await addDoc(collectionRef, newOrder);
-
-    if (newOrder.couponCode) {
-      // If a couponCode is used in the order
-      const couponRef = collection(db, "coupons");
-      const querySnapshot = await getDocs(
-        query(couponRef, where("couponCode", "==", newOrder.couponCode))
-      );
-
-      if (!querySnapshot.empty) {
-        // If a matching coupon is found
-        const couponDoc = querySnapshot.docs[0];
-        const couponDocId = couponDoc.id;
-
-        // Update the couponUsage list
-        await updateDoc(doc(couponRef, couponDocId), {
-          couponUsage: arrayUnion(orderDocRef.id),
-        });
+      // Ensure 'listings' exists and is an array, or initialize it
+      if (!Array.isArray(data.listings)) {
+        data.listings = [];
       }
+
+      // Add a new item to the 'listings' array
+      const newListing = {
+        title,
+        price,
+        description,
+        date,
+        bookings,
+        imageURL,
+      };
+
+      data.listings.push(newListing);
+
+      // Update the document with the modified 'listings' array
+      await updateDoc(collectionRef, {
+        listings: data.listings,
+      });
+
+      console.log("Updated");
+      return true;
+    } else {
+      console.error("Document does not exist.");
+      return false;
     }
-
-    return true;
   } catch (error) {
-
+    console.error("Error:", error);
     return false;
   }
 };
 
-export const handlePaymentUpdate = async (orderId) => {
-  try {
-    const orderRef = doc(db, "orders", orderId);
-    await updateDoc(orderRef, {
-      paid: true,
-      paidAt: serverTimestamp(),
-    });
-    return true;
-  } catch (error) {
-    return error;
-  }
-};
 
-export const handleDeliveryUpdate = async (orderId) => {
-  try {
-    const orderRef = doc(db, "orders", orderId);
-    await updateDoc(orderRef, {
-      delivered: true,
-      deliveredAt: serverTimestamp(),
-    });
-    return true;
-  } catch (error) {
-    return error;
-  }
-};
 
-export const useFetchData = (trigger, collectionName) => {
+export const useFetchData = (collectionName, userId) => {
   const [data, setData] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
-      const dataRef = collection(db, collectionName);
-      const querySnapshot = await getDocs(dataRef);
-      const documents = [];
-      querySnapshot.forEach((doc) => {
-        documents.push({ id: doc.id, ...doc.data() });
-      });
-      setData(documents);
+      const ref = doc(db, collectionName, userId);
+      onSnapshot(ref, (doc) => {
+        setData(doc.data())
+      })
     };
     fetchData();
-  }, [trigger, collectionName]);
-
+  }, []);
+  console.log(data)
   return data;
+
 };
+
